@@ -38,6 +38,7 @@ Options
 const OUTPUT_FILE = "FILE";
 const OUTPUT_STDOUT = "STDOUT";
 const CWD = new URL(`file://${process.cwd()}/`);
+const REDOC_CONFIG_KEY = "x-openapi-ts";
 
 const timeStart = performance.now();
 
@@ -149,7 +150,7 @@ async function main() {
   );
   const redoc = maybeRedoc
     ? await loadConfig({ configPath: maybeRedoc })
-    : createConfig({}, { extends: ["minimal"] });
+    : await createConfig({}, { extends: ["minimal"] });
 
   // handle Redoc APIs
   const hasRedoclyApis = Object.keys(redoc?.apis ?? {}).length > 0;
@@ -161,21 +162,32 @@ async function main() {
     }
     await Promise.all(
       Object.entries(redoc.apis).map(async ([name, api]) => {
-        const configRoot = redoc?.configFile
-          ? new URL(`file://${redoc.configFile}`)
-          : CWD;
-        if (!api["openapi-ts"]?.output) {
+        let configRoot = CWD;
+        if (redoc.configFile) {
+          // note: this will be absolute if --redoc is passed; otherwise, relative
+          configRoot = path.isAbsolute(redoc.configFile)
+            ? new URL(`file://${redoc.configFile}`)
+            : new URL(redoc.configFile, `file://${process.cwd()}/`);
+        }
+        if (!api[REDOC_CONFIG_KEY]?.output) {
+          // TODO: remove in stable v7
+          if (api["openapi-ts"]) {
+            errorAndExit(
+              `Please rename "openapi-ts" to "x-openapi-ts" in your Redoc config.`,
+            );
+          }
+
           errorAndExit(
-            `API ${name} is missing an \`openapi-ts.output\` key. See https://openapi-ts.pages.dev/cli/#multiple-schemas.`,
+            `API ${name} is missing an \`${REDOC_CONFIG_KEY}.output\` key. See https://openapi-ts.pages.dev/cli/#multiple-schemas.`,
           );
         }
         const result = await generateSchema(new URL(api.root, configRoot), {
           redoc, // TODO: merge API overrides better?
         });
-        const outFile = new URL(api["openapi-ts"].output, configRoot);
+        const outFile = new URL(api[REDOC_CONFIG_KEY].output, configRoot);
         fs.mkdirSync(new URL(".", outFile), { recursive: true });
         fs.writeFileSync(outFile, result, "utf8");
-        done(name, api.root, performance.now() - timeStart);
+        done(name, api[REDOC_CONFIG_KEY].output, performance.now() - timeStart);
       }),
     );
   }

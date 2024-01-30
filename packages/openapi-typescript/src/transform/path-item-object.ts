@@ -4,10 +4,11 @@ import {
   QUESTION_TOKEN,
   addJSDocComment,
   oapiRef,
+  tsModifiers,
   tsPropertyIndex,
 } from "../lib/ts.js";
 import { createRef } from "../lib/utils.js";
-import {
+import type {
   OperationObject,
   ParameterObject,
   PathItemObject,
@@ -69,7 +70,7 @@ export default function transformPathItemObject(
     ) {
       type.push(
         ts.factory.createPropertySignature(
-          /* modifiers     */ undefined,
+          /* modifiers     */ tsModifiers({ readonly: options.ctx.immutable }),
           /* name          */ tsPropertyIndex(method),
           /* questionToken */ QUESTION_TOKEN,
           /* type          */ NEVER,
@@ -87,9 +88,13 @@ export default function transformPathItemObject(
         ...(pathItem.parameters ?? []),
         ...(operationObject.parameters ?? []),
       ]) {
-        // note: the actual key doesn’t matter here, as long as it can match between PathItem and OperationObject
-        keyedParameters["$ref" in parameter ? parameter.$ref : parameter.name] =
-          parameter;
+        const name =
+          "$ref" in parameter
+            ? options.ctx.resolve<ParameterObject>(parameter.$ref)?.name
+            : parameter.name;
+        if (name) {
+          keyedParameters[name] = parameter;
+        }
       }
     }
 
@@ -116,7 +121,7 @@ export default function transformPathItemObject(
       );
     }
     const property = ts.factory.createPropertySignature(
-      /* modifiers     */ undefined,
+      /* modifiers     */ tsModifiers({ readonly: options.ctx.immutable }),
       /* name          */ tsPropertyIndex(method),
       /* questionToken */ undefined,
       /* type          */ operationType,

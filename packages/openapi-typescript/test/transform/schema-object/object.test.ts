@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { astToString } from "../../../src/index.js";
 import transformSchemaObject from "../../../src/transform/schema-object.js";
-import { DEFAULT_CTX, TestCase } from "../../test-helpers.js";
+import { DEFAULT_CTX, type TestCase } from "../../test-helpers.js";
 
 const DEFAULT_OPTIONS = {
   path: "#/schemas/components/schema-object",
@@ -279,7 +279,20 @@ describe("transformSchemaObject > object", () => {
       },
     ],
     [
-      "options > immutable: true",
+      "options > immutable (string)",
+      {
+        given: {
+          type: "string",
+        },
+        want: `string`,
+        options: {
+          ...DEFAULT_OPTIONS,
+          ctx: { ...DEFAULT_OPTIONS.ctx, immutable: true },
+        },
+      },
+    ],
+    [
+      "options > immutable (array)",
       {
         given: {
           type: "object",
@@ -295,9 +308,9 @@ describe("transformSchemaObject > object", () => {
           },
         },
         want: `{
-    readonly array?: (readonly {
+    readonly array?: {
         readonly [key: string]: unknown;
-    })[] | null;
+    }[] | null;
 }`,
         options: {
           ...DEFAULT_OPTIONS,
@@ -321,6 +334,42 @@ describe("transformSchemaObject > object", () => {
         options: {
           ...DEFAULT_OPTIONS,
           ctx: { ...DEFAULT_OPTIONS.ctx, excludeDeprecated: true },
+        },
+      },
+    ],
+    [
+      "options > two-dimensional array",
+      {
+        given: {
+          type: "object",
+          properties: {
+            array: {
+              type: "array",
+              items: {
+                items: [
+                  {
+                    type: "string",
+                  },
+                  {
+                    type: "boolean",
+                  },
+                ],
+                type: "array",
+                maxItems: 2,
+                minItems: 2,
+              },
+            },
+          },
+        },
+        want: `{
+    array?: [
+        string,
+        boolean
+    ][];
+}`,
+        options: {
+          ...DEFAULT_OPTIONS,
+          ctx: { ...DEFAULT_OPTIONS.ctx },
         },
       },
     ],

@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { astToString } from "../../../src/lib/ts.js";
 import transformSchemaObject from "../../../src/transform/schema-object.js";
-import { DEFAULT_CTX, TestCase } from "../../test-helpers.js";
+import { DEFAULT_CTX, type TestCase } from "../../test-helpers.js";
 
 const DEFAULT_OPTIONS = {
   path: "#/components/schemas/schema-object",
@@ -43,6 +43,23 @@ describe("transformSchemaObject > string", () => {
         given: { type: "string", enum: [" blue", "green ", " ", ""] },
         want: `" blue" | "green " | " " | ""`,
         // options: DEFAULT_OPTIONS,
+      },
+    ],
+    [
+      "enum (UTF-8)",
+      {
+        given: { type: "string", enum: ["赤", "青", "緑"] },
+        want: `"赤" | "青" | "緑"`,
+        // options: DEFAULT_OPTIONS
+      },
+    ],
+    [
+      "enum (quotes)",
+      {
+        // prettier-ignore
+        // eslint-disable-next-line no-useless-escape
+        given: { type: "string", enum: ['"', "'", '\"', "`"] },
+        want: `"\\"" | "'" | "\\"" | "\`"`,
       },
     ],
     [

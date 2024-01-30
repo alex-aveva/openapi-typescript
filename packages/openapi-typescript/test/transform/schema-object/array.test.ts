@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { astToString } from "../../../src/lib/ts.js";
 import transformSchemaObject from "../../../src/transform/schema-object.js";
-import { DEFAULT_CTX, TestCase } from "../../test-helpers.js";
+import { DEFAULT_CTX, type TestCase } from "../../test-helpers.js";
 
 const DEFAULT_OPTIONS = {
   path: "#/components/schemas/schema-object",
@@ -157,7 +157,7 @@ describe("transformSchemaObject > array", () => {
           type: "array",
           items: { type: "array", items: { type: "string" } },
         },
-        want: `(readonly (readonly string)[])[]`,
+        want: `string[][]`,
         options: {
           ...DEFAULT_OPTIONS,
           ctx: { ...DEFAULT_OPTIONS.ctx, immutable: true },

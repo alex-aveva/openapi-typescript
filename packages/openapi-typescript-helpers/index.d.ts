@@ -67,21 +67,30 @@ export type OperationRequestBodyContent<T> = FilterKeys<
       | undefined
   : FilterKeys<OperationRequestBodyMediaContent<T>, MediaType>;
 /** Return first 2XX response from a Response Object Map */
-export type SuccessResponse<T> = FilterKeys<FilterKeys<T, OkStatus>, "content">;
+export type SuccessResponse<T> = ResponseContent<FilterKeys<T, OkStatus>>;
 /** Return first 5XX or 4XX response (in that order) from a Response Object Map */
-export type ErrorResponse<T> = FilterKeys<
-  FilterKeys<T, ErrorStatus>,
-  "content"
+export type ErrorResponse<T> = ResponseContent<FilterKeys<T, ErrorStatus>>;
+/** Return first JSON-like 2XX response from a path + HTTP method */
+export type SuccessResponseJSON<PathMethod> = JSONLike<
+  SuccessResponse<ResponseObjectMap<PathMethod>>
+>;
+/** Return first JSON-like 5XX or 4XX response from a path + HTTP method */
+export type ErrorResponseJSON<PathMethod> = JSONLike<
+  ErrorResponse<ResponseObjectMap<PathMethod>>
+>;
+/** Return JSON-like request body from a path + HTTP method */
+export type RequestBodyJSON<PathMethod> = JSONLike<
+  ResponseContent<OperationRequestBody<PathMethod>>
 >;
 
 // Generic TS utils
 
 /** Find first match of multiple keys */
-export type FilterKeys<Obj, Matchers> = {
-  [K in keyof Obj]: K extends Matchers ? Obj[K] : never;
-}[keyof Obj];
+export type FilterKeys<Obj, Matchers> = Obj[keyof Obj & Matchers];
 /** Return any `[string]/[string]` media type (important because openapi-fetch allows any content response, not just JSON-like) */
 export type MediaType = `${string}/${string}`;
+/** Return any media type containing "json" (works for "application/json", "application/vnd.api+json", "application/vnd.oai.openapi+json") */
+export type JSONLike<T> = FilterKeys<T, `${string}/json`>;
 /** Filter objects that have required keys */
 export type FindRequiredKeys<T, K extends keyof T> = K extends unknown
   ? undefined extends T[K]

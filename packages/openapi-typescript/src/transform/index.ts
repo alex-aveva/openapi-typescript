@@ -1,7 +1,10 @@
-import ts, { InterfaceDeclaration, TypeLiteralNode } from "typescript";
+import ts, {
+  type InterfaceDeclaration,
+  type TypeLiteralNode,
+} from "typescript";
 import { NEVER, STRING, tsModifiers, tsRecord } from "../lib/ts.js";
 import { createRef, debug } from "../lib/utils.js";
-import { GlobalContext, OpenAPI3 } from "../types.js";
+import type { GlobalContext, OpenAPI3 } from "../types.js";
 import transformComponentsObject from "./components-object.js";
 import transformPathsObject from "./paths-object.js";
 import transformSchemaObject from "./schema-object.js";
@@ -28,10 +31,7 @@ export default function transformSchema(schema: OpenAPI3, ctx: GlobalContext) {
 
   for (const root of Object.keys(transformers) as SchemaTransforms[]) {
     const emptyObj = ts.factory.createTypeAliasDeclaration(
-      /* modifiers      */ tsModifiers({
-        export: true,
-        readonly: ctx.immutable,
-      }),
+      /* modifiers      */ tsModifiers({ export: true }),
       /* name           */ root,
       /* typeParameters */ undefined,
       /* type           */ tsRecord(STRING, NEVER),
@@ -44,19 +44,13 @@ export default function transformSchema(schema: OpenAPI3, ctx: GlobalContext) {
         type.push(
           ctx.exportType
             ? ts.factory.createTypeAliasDeclaration(
-                /* modifiers      */ tsModifiers({
-                  export: true,
-                  readonly: ctx.immutable,
-                }),
+                /* modifiers      */ tsModifiers({ export: true }),
                 /* name           */ root,
                 /* typeParameters */ undefined,
                 /* type           */ subType,
               )
             : ts.factory.createInterfaceDeclaration(
-                /* modifiers       */ tsModifiers({
-                  export: true,
-                  readonly: ctx.immutable,
-                }),
+                /* modifiers       */ tsModifiers({ export: true }),
                 /* name            */ root,
                 /* typeParameters  */ undefined,
                 /* heritageClauses */ undefined,
@@ -89,10 +83,7 @@ export default function transformSchema(schema: OpenAPI3, ctx: GlobalContext) {
     // if no operations created, inject empty operations type
     type.push(
       ts.factory.createTypeAliasDeclaration(
-        /* modifiers      */ tsModifiers({
-          export: true,
-          readonly: ctx.immutable,
-        }),
+        /* modifiers      */ tsModifiers({ export: true }),
         /* name           */ "operations",
         /* typeParameters */ undefined,
         /* type           */ tsRecord(STRING, NEVER),

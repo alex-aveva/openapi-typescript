@@ -2,7 +2,7 @@ import { execa } from "execa";
 import fs from "node:fs";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
-import { TestCase } from "./test-helpers.js";
+import type { TestCase } from "./test-helpers.js";
 
 const root = new URL("../", import.meta.url);
 const cwd = os.platform() === "win32" ? fileURLToPath(root) : root; // execa bug: fileURLToPath required on Windows
@@ -14,15 +14,31 @@ describe("CLI", () => {
     [
       "snapshot > GitHub API",
       {
-        given: "./examples/github-api.yaml",
+        given: ["./examples/github-api.yaml"],
         want: new URL("./examples/github-api.ts", root),
+        ci: { timeout: TIMEOUT },
+      },
+    ],
+    [
+      "snapshot > GitHub API (immutable)",
+      {
+        given: ["./examples/github-api.yaml", "--immutable"],
+        want: new URL("./examples/github-api-immutable.ts", root),
+        ci: { timeout: TIMEOUT },
+      },
+    ],
+    [
+      "snapshot > GitHub API (types + immutable)",
+      {
+        given: ["./examples/github-api.yaml", "--immutable", "--export-type"],
+        want: new URL("./examples/github-api-export-type-immutable.ts", root),
         ci: { timeout: TIMEOUT },
       },
     ],
     [
       "snapshot > GitHub API (next)",
       {
-        given: "./examples/github-api-next.yaml",
+        given: ["./examples/github-api-next.yaml"],
         want: new URL("./examples/github-api-next.ts", root),
         ci: { timeout: TIMEOUT },
       },
@@ -30,7 +46,7 @@ describe("CLI", () => {
     [
       "snapshot > Octokit GHES 3.6 Diff to API",
       {
-        given: "./examples/octokit-ghes-3.6-diff-to-api.json",
+        given: ["./examples/octokit-ghes-3.6-diff-to-api.json"],
         want: new URL("./examples/octokit-ghes-3.6-diff-to-api.ts", root),
         ci: { timeout: TIMEOUT },
       },
@@ -38,7 +54,7 @@ describe("CLI", () => {
     [
       "snapshot > Stripe API",
       {
-        given: "./examples/stripe-api.yaml",
+        given: ["./examples/stripe-api.yaml"],
         want: new URL("./examples/stripe-api.ts", root),
         ci: { timeout: TIMEOUT },
       },
@@ -46,7 +62,7 @@ describe("CLI", () => {
     [
       "snapshot > DigitalOcean",
       {
-        given: "./examples/digital-ocean-api/DigitalOcean-public.v2.yaml",
+        given: ["./examples/digital-ocean-api/DigitalOcean-public.v2.yaml"],
         want: new URL("./examples/digital-ocean-api.ts", root),
         ci: { timeout: TIMEOUT },
       },
@@ -57,7 +73,7 @@ describe("CLI", () => {
     test.skipIf(ci?.skipIf)(
       testName,
       async () => {
-        const { stdout } = await execa(cmd, [given], { cwd });
+        const { stdout } = await execa(cmd, given, { cwd });
         if (want instanceof URL) {
           expect(stdout).toMatchFileSnapshot(fileURLToPath(want));
         } else {
@@ -99,14 +115,33 @@ describe("CLI", () => {
   });
 
   describe("Redocly config", () => {
-    test("accepts multiple APIs", async () => {
-      await execa(cmd, ["--redoc", "test/fixtures/redocly/redocly.yaml"], {
+    // TODO: why won’t this run on Windows?
+    test.skipIf(os.platform() === "win32")("automatic config", async () => {
+      /* eslint-disable @typescript-eslint/no-shadow */
+
+      // note: we have to change the cwd here for the automatic config to pick up properly
+      const root = new URL("./fixtures/redocly/", import.meta.url);
+      const cwd = os.platform() === "win32" ? fileURLToPath(root) : root;
+
+      await execa("../../../bin/cli.js", { cwd });
+      for (const schema of ["a", "b", "c"]) {
+        expect(
+          fs.readFileSync(new URL(`./output/${schema}.ts`, root), "utf8"),
+        ).toMatchFileSnapshot(
+          fileURLToPath(new URL("../../../examples/simple-example.ts", root)),
+        );
+      }
+      /* eslint-enable @typescript-eslint/no-shadow */
+    });
+
+    test("--redoc config", async () => {
+      await execa(cmd, ["--redoc", "test/fixtures/redocly-flag/redocly.yaml"], {
         cwd,
       });
       for (const schema of ["a", "b", "c"]) {
         expect(
           fs.readFileSync(
-            new URL(`./test/fixtures/redocly/output/${schema}.ts`, root),
+            new URL(`./test/fixtures/redocly-flag/output/${schema}.ts`, root),
             "utf8",
           ),
         ).toMatchFileSnapshot(

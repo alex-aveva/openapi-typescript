@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { astToString } from "../../src/lib/ts.js";
 import transformOperationObject from "../../src/transform/operation-object.js";
-import { DEFAULT_CTX, TestCase } from "../test-helpers.js";
+import { DEFAULT_CTX, type TestCase } from "../test-helpers.js";
 
 const DEFAULT_OPTIONS = { path: "#/paths/~1get-item", ctx: { ...DEFAULT_CTX } };
 
@@ -153,6 +153,65 @@ responses: {
         };
         content: {
             "application/json": string;
+        };
+    };
+};`,
+      },
+    ],
+    [
+      "defaultNonNullable > parameters aren’t required even with defaults",
+      {
+        given: {
+          parameters: [
+            {
+              in: "query",
+              name: "format",
+              schema: { type: "string", default: "json" },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "OK",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      required: {
+                        type: "string",
+                        default: "true",
+                      },
+                      optional: {
+                        type: "boolean",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        want: `parameters: {
+    query?: {
+        format?: string;
+    };
+    header?: never;
+    path?: never;
+    cookie?: never;
+};
+requestBody?: never;
+responses: {
+    /** @description OK */
+    200: {
+        headers: {
+            [name: string]: unknown;
+        };
+        content: {
+            "application/json": {
+                /** @default true */
+                required: string;
+                optional?: boolean;
+            };
         };
     };
 };`,

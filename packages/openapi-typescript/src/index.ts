@@ -1,6 +1,6 @@
 import { createConfig } from "@redocly/openapi-core";
-import { Readable } from "node:stream";
-import ts from "typescript";
+import type { Readable } from "node:stream";
+import type ts from "typescript";
 import { validateAndBundle } from "./lib/redoc.js";
 import { debug, resolveRef, scanDiscriminators } from "./lib/utils.js";
 import transformSchema from "./transform/index.js";
@@ -48,7 +48,15 @@ export default async function openapiTS(
   }
 
   const redoc =
-    options.redocly ?? (await createConfig({}, { extends: ["minimal"] }));
+    options.redocly ??
+    (await createConfig(
+      {
+        rules: {
+          "operation-operationId-unique": { severity: "error" }, // throw error on duplicate operationIDs
+        },
+      },
+      { extends: ["minimal"] },
+    ));
 
   const schema = await validateAndBundle(source, {
     redoc,

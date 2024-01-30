@@ -3,10 +3,11 @@ import {
   addJSDocComment,
   oapiRef,
   stringToAST,
+  tsModifiers,
   tsPropertyIndex,
 } from "../lib/ts.js";
 import { createRef, debug, getEntries } from "../lib/utils.js";
-import {
+import type {
   GlobalContext,
   OperationObject,
   ParameterObject,
@@ -14,7 +15,7 @@ import {
   PathsObject,
   ReferenceObject,
 } from "../types.js";
-import transformPathItemObject, { Method } from "./path-item-object.js";
+import transformPathItemObject, { type Method } from "./path-item-object.js";
 
 const PATH_PARAM_RE = /\{[^}]+\}/g;
 
@@ -37,7 +38,7 @@ export default function transformPathsObject(
     // handle $ref
     if ("$ref" in pathItemObject) {
       const property = ts.factory.createPropertySignature(
-        /* modifiers     */ undefined,
+        /* modifiers     */ tsModifiers({ readonly: ctx.immutable }),
         /* name          */ tsPropertyIndex(url),
         /* questionToken */ undefined,
         /* type          */ oapiRef(pathItemObject.$ref),
@@ -74,7 +75,7 @@ export default function transformPathsObject(
           if (pathType) {
             type.push(
               ts.factory.createIndexSignature(
-                /* modifiers     */ undefined,
+                /* modifiers     */ tsModifiers({ readonly: ctx.immutable }),
                 /* parameters    */ [
                   ts.factory.createParameterDeclaration(
                     /* modifiers      */ undefined,
@@ -96,7 +97,7 @@ export default function transformPathsObject(
 
       type.push(
         ts.factory.createPropertySignature(
-          /* modifiers     */ undefined,
+          /* modifiers     */ tsModifiers({ readonly: ctx.immutable }),
           /* name          */ tsPropertyIndex(url),
           /* questionToken */ undefined,
           /* type          */ pathItemType,

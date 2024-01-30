@@ -1,10 +1,14 @@
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import openapiTS, { COMMENT_HEADER, astToString } from "../src/index.js";
-import { OpenAPITSOptions } from "../src/types.js";
-import { TestCase } from "./test-helpers.js";
+import type { OpenAPITSOptions } from "../src/types.js";
+import type { TestCase } from "./test-helpers.js";
 
 const EXAMPLES_DIR = new URL("../examples/", import.meta.url);
+
+const DATE = ts.factory.createTypeReferenceNode(
+  ts.factory.createIdentifier("Date"),
+);
 
 describe("Node.js API", () => {
   const tests: TestCase<any, OpenAPITSOptions>[] = [
@@ -382,9 +386,49 @@ export type operations = Record<string, never>;`,
                * then use the `typescript` parser and it will tell you the desired
                * AST
                */
-              return ts.factory.createTypeReferenceNode(
-                ts.factory.createIdentifier("Date"),
-              );
+              return DATE;
+            }
+          },
+        },
+      },
+    ],
+    [
+      "options > transform with schema object",
+      {
+        given: {
+          openapi: "3.1",
+          info: { title: "Test", version: "1.0" },
+          components: {
+            schemas: {
+              Date: { type: "string", format: "date-time" },
+            },
+          },
+        },
+        want: `export type paths = Record<string, never>;
+export type webhooks = Record<string, never>;
+export interface components {
+    schemas: {
+        /** Format: date-time */
+        Date?: Date;
+    };
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
+}
+export type $defs = Record<string, never>;
+export type operations = Record<string, never>;`,
+        options: {
+          transform(schemaObject) {
+            if (
+              "format" in schemaObject &&
+              schemaObject.format === "date-time"
+            ) {
+              return {
+                schema: DATE,
+                questionToken: true,
+              };
             }
           },
         },
@@ -465,6 +509,26 @@ export type operations = Record<string, never>;`,
                 type: "number",
                 enum: [100, 101, 102, 103, 104, 105],
               },
+              XEnumVarnames: {
+                type: "number",
+                enum: [0, 1, 2],
+                "x-enum-varnames": ["Success", "Warning", "Error"],
+                "x-enum-descriptions": [
+                  "Used when the status of something is successful",
+                  "Used when the status of something has a warning",
+                  "Used when the status of something has an error",
+                ],
+              },
+              XEnumNames: {
+                type: "number",
+                enum: [1, 2, 3],
+                "x-enumNames": ["Uno", "Dos", "Tres"],
+                "x-enumDescriptions": [
+                  "El número uno",
+                  "El número dos",
+                  "El número tres",
+                ],
+              },
             },
           },
         },
@@ -504,6 +568,10 @@ export interface components {
         Status: Status;
         /** @enum {number} */
         ErrorCode: ErrorCode;
+        /** @enum {number} */
+        XEnumVarnames: XEnumVarnames;
+        /** @enum {number} */
+        XEnumNames: XEnumNames;
     };
     responses: never;
     parameters: never;
@@ -527,6 +595,22 @@ export enum ErrorCode {
     Value103 = 103,
     Value104 = 104,
     Value105 = 105
+}
+export enum XEnumVarnames {
+    // Used when the status of something is successful
+    Success = 0,
+    // Used when the status of something has a warning
+    Warning = 1,
+    // Used when the status of something has an error
+    Error = 2
+}
+export enum XEnumNames {
+    // El número uno
+    Uno = 1,
+    // El número dos
+    Dos = 2,
+    // El número tres
+    Tres = 3
 }
 export type operations = Record<string, never>;`,
         options: { enum: true },

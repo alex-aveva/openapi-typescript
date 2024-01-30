@@ -28,7 +28,7 @@ import {
   createRef,
   getEntries,
 } from "../lib/utils.js";
-import {
+import type {
   ReferenceObject,
   SchemaObject,
   TransformNodeOptions,
@@ -88,16 +88,6 @@ export function transformSchemaObjectWithComposition(
   }
 
   /**
-   * transform()
-   */
-  if (typeof options.ctx.transform === "function") {
-    const result = options.ctx.transform(schemaObject, options);
-    if (result !== undefined && result !== null) {
-      return result;
-    }
-  }
-
-  /**
    * const (valid for any type)
    */
   if (schemaObject.const !== null && schemaObject.const !== undefined) {
@@ -125,8 +115,12 @@ export function transformSchemaObjectWithComposition(
       // allow #/components/schemas to have simpler names
       enumName = enumName.replace("components/schemas", "");
       const metadata = schemaObject.enum.map((_, i) => ({
-        name: schemaObject["x-enum-varnames"]?.[i],
-        description: schemaObject["x-enum-descriptions"]?.[i],
+        name:
+          schemaObject["x-enum-varnames"]?.[i] ??
+          schemaObject["x-enumNames"]?.[i],
+        description:
+          schemaObject["x-enum-descriptions"]?.[i] ??
+          schemaObject["x-enumDescriptions"]?.[i],
       }));
       const enumType = tsEnum(
         enumName,
@@ -308,12 +302,15 @@ function transformSchemaObjectCore(
       }
       // standard array type
       else if (schemaObject.items) {
-        itemType = transformSchemaObject(schemaObject.items, options);
-        if (options.ctx.immutable) {
-          itemType = ts.factory.createTypeOperatorNode(
-            ts.SyntaxKind.ReadonlyKeyword,
-            itemType,
+        if (
+          "type" in schemaObject.items &&
+          schemaObject.items.type === "array"
+        ) {
+          itemType = ts.factory.createArrayTypeNode(
+            transformSchemaObject(schemaObject.items, options),
           );
+        } else {
+          itemType = transformSchemaObject(schemaObject.items, options);
         }
       }
 
@@ -362,9 +359,9 @@ function transformSchemaObjectCore(
         }
       }
 
-      return ts.isTupleTypeNode(itemType)
+      return ts.isTupleTypeNode(itemType) || ts.isArrayTypeNode(itemType)
         ? itemType
-        : ts.factory.createArrayTypeNode(itemType); // wrap itemType in array type, but only if not a tuple already
+        : ts.factory.createArrayTypeNode(itemType); // wrap itemType in array type, but only if not a tuple or array already
     }
 
     // polymorphic, or 3.1 nullable
@@ -461,18 +458,33 @@ function transformSchemaObjectCore(
             continue;
           }
         }
-        const optional =
+        let optional =
           schemaObject.required?.includes(k) ||
-          ("default" in v && options.ctx.defaultNonNullable)
+          ("default" in v &&
+            options.ctx.defaultNonNullable &&
+            !options.path?.includes("parameters")) // parameters can’t be required, even with defaults
             ? undefined
             : QUESTION_TOKEN;
-        const type =
+        let type =
           "$ref" in v
             ? oapiRef(v.$ref)
             : transformSchemaObject(v, {
                 ...options,
                 path: createRef([options.path ?? "", k]),
               });
+
+        if (typeof options.ctx.transform === "function") {
+          const result = options.ctx.transform(v, options);
+          if (result) {
+            if ("schema" in result) {
+              type = result.schema;
+              optional = result.questionToken ? QUESTION_TOKEN : optional;
+            } else {
+              type = result;
+            }
+          }
+        }
+
         const property = ts.factory.createPropertySignature(
           /* modifiers     */ tsModifiers({
             readonly:
@@ -496,7 +508,7 @@ function transformSchemaObjectCore(
       const defKeys: ts.TypeElement[] = [];
       for (const [k, v] of Object.entries(schemaObject.$defs)) {
         const property = ts.factory.createPropertySignature(
-          /* modifiers */ tsModifiers({
+          /* modifiers    */ tsModifiers({
             readonly:
               options.ctx.immutable || ("readonly" in v && !!v.readOnly),
           }),
@@ -512,9 +524,7 @@ function transformSchemaObjectCore(
       }
       coreObjectType.push(
         ts.factory.createPropertySignature(
-          /* modifiers     */ tsModifiers({
-            readonly: options.ctx.immutable,
-          }),
+          /* modifiers     */ undefined,
           /* name          */ tsPropertyIndex("$defs"),
           /* questionToken */ undefined,
           /* type          */ ts.factory.createTypeLiteralNode(defKeys),
